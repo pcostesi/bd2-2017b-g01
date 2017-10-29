@@ -96,53 +96,27 @@ create or replace PACKAGE BODY CONCILIATE_PKG AS
           WHERE ID = pHsId;
   END conciliate_booking;
 
-  -- Conciliacion de un extracto
-  PROCEDURE conciliate_statement ( pStatementLocator VARCHAR ) AS
-      vTolPercentage NUMBER(10,2);
-      vTolMax NUMBER(10,2);
-  BEGIN
-
-    dbms_output.put_line('Conciliating statement '||pStatementLocator);
-
-
-    -- Recorro las reservas reclamadas por el hotelero en su extracto
-    FOR R IN ( 
-        SELECT hs.ID, hs.SUPPLIER_ID, hs.RECORD_LOCATOR, hs.AMOUNT, hs.CURRENCY
-        FROM hotel_statement hs
-        WHERE hs.statement_locator = pStatementLocator
-        AND LTRIM(RTRIM(hs.STATUS)) = 'PENDING'
-   ) LOOP
-      -- Recupero los parametros de tolerancia del proveedor
-      dbms_output.put_line('  Retrieving supplier '||R.SUPPLIER_ID);
-      SELECT s.CONCILIATION_TOLERANCE_PERC, s.CONCILIATION_TOLERANCE_MAX
-      INTO vTolPercentage, vTolMax
-      FROM supplier s
-      WHERE s.ID = R.SUPPLIER_ID;
-
-        -- Concilio una reserva
-        dbms_output.put_line('  Conciliating booking '||R.RECORD_LOCATOR);
-        conciliate_booking(R.ID,R.SUPPLIER_ID,R.RECORD_LOCATOR,R.AMOUNT,R.CURRENCY,vTolPercentage,vTolMax);
-    END LOOP;
-
-    -- El extracto debe procesarse completo
-    COMMIT;
-
-  END conciliate_statement;
-
-  -- Conciliacion de todos los extractos pendientes
-  PROCEDURE conciliate_all_statements AS
-  BEGIN        
-
-    -- Recorro los extractos pendientes
-    FOR R IN ( 
-        SELECT distinct hs.statement_locator
-        FROM hotel_statement hs
-        WHERE LTRIM(RTRIM(hs.STATUS)) = 'PENDING'
-   ) LOOP
-      -- Concilio el extracto actual
-      conciliate_statement(R.STATEMENT_LOCATOR);
-    END LOOP;
-
-  END conciliate_all_statements;
+    -- Conciliacion de todos los extractos pendientes
+    PROCEDURE conciliate_all_statements AS
+    BEGIN
+        -- Recorro los extractos pendientes
+        FOR R IN (
+            SELECT
+                hs.ID, hs.SUPPLIER_ID, hs.RECORD_LOCATOR, hs.AMOUNT, hs.CURRENCY,
+                s.CONCILIATION_TOLERANCE_PERC, s.CONCILIATION_TOLERANCE_MAX
+            FROM hotel_statement hs
+            JOIN supplier s ON s.ID = hs.SUPPLIER_ID
+            WHERE LTRIM(RTRIM(hs.STATUS)) = 'PENDING'
+        ) LOOP
+            -- Concilio una reserva
+            dbms_output.put_line('  Conciliating booking '||R.RECORD_LOCATOR);
+            conciliate_booking(
+                R.ID,R.SUPPLIER_ID,R.RECORD_LOCATOR,R.AMOUNT,R.CURRENCY,
+                R.CONCILIATION_TOLERANCE_PERC, R.CONCILIATION_TOLERANCE_MAX
+            );
+            -- El extracto debe procesarse completo
+            COMMIT;
+        END LOOP;
+    END conciliate_all_statements;
 
 END CONCILIATE_PKG;

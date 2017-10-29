@@ -23,7 +23,14 @@
 
 ### Problemas Encontrados
 
-#### Permitir el uso de RECORD_LOCATOR
+#### REMOVER `STATEMENT_LOCATOR` de `conciliate_booking`
+El procedure `conciliate_booking` recibe como primer parámetro `STATEMENT_LOCATOR` y en la tabla `CONCILIATION` se está guardando el mismo. Este parámetro carece de total sentido debido a que un `HOTEL_STATEMENT` posee ya una *Primary Key* (`HOTEL_STATEMENT.ID`). Además esta columna no posee indice (como sí posee la `PK`) y el tipo de la columna `CONCILIATION.STATEMENT_LOCATOR` es inconsistente con el de la columna `HOTEL_STATEMENT.STATEMENT_LOCATOR`.
+
+Por todas estas razones se removió la columna `STATEMENT_LOCATOR` de `CONCILIATION` y se quitó el primer parámetro de `conciliate_booking` acordemente. (El segundo parámetro es la PK mencionada `pHsId`).
+
+No se removió en el contexto de este cambio la columna `STATEMENT_LOCATOR` de `HOTEL_STATEMENT` porque luego en un cambio más grande esta columna sera removida por completo.
+
+#### Columna RECORD_LOCATOR en PAYMENT_ORDER y HOTEL_STATEMENT
 
 Una de las primeras mejoras analizadas fue la posibilidad de modificar el uso de RECORD_LOCATOR por directamente una referencia a la *Primary Key* como se muestra a continuación:
 ```
@@ -58,6 +65,37 @@ De esta manera se mueve el chequeo de las mayúsculas a la hora del insert (en l
 A su vez se agregó el indice `UNIQUE` para garantizar que sea unívoco el acceso al mismo.
 
 Éste último cambio nos lleva a pensar una limitación que tiene el sistema actual, el `RECORD_LOCATOR` es de tipo `CHAR(6 BYTE)`, la cardinalidad de este tipo es mucho menor a la de nuestras PKs de `NUMBER(10, 0)`, por lo que en algún momento el sistema se va a quedar sin RECORD_LOCATOR que generar. Se pensó en cambiar la columna de `RECORD_LOCATOR` por otra cosa, pero debido a que el origen de este dato es incierto se decidió dejarlo como está y hacer esta mención en el informe.
+
+#### Eliminación completa del paso intermedio `conciliate_statement`
+
+El script `conciliate_all_statements` estaba iterando por las rows de `hotel_statement` en  `STATUS='PENDING'` y luego en el `LOOP` invocando a `conciliate_statement` con un único parámetro `STATEMENT_LOCATOR`. Ya hemos mencionado la innecesidad de utilizar la columna `STATEMENT_LOCATOR`, la ausencia de indice en ella. Por último esta procedure hace una búsqueda del SUPPLIER para obtener los valores `vTolPercentage` y `vTolMax` para finalmente invocar a `conciliate_booking`.
+
+Debido a que todo este paso intermedio es innecesario podemos remover la clausula `conciliate_statement` por completo como así también la columna `STATEMENT_LOCATOR` de `HOTEL_STATEMENT` y realizar directamente en `conciliate_all_statements` un LOOP conteniendo toda la información necesaria y llamar directamente a `conciliate_booking` desde allí:
+```
+-- Conciliacion de todos los extractos pendientes
+PROCEDURE conciliate_all_statements AS
+BEGIN
+    -- Recorro los extractos pendientes
+    FOR R IN (
+        SELECT
+            hs.ID, hs.SUPPLIER_ID, hs.RECORD_LOCATOR, hs.AMOUNT, hs.CURRENCY,
+            s.CONCILIATION_TOLERANCE_PERC, s.CONCILIATION_TOLERANCE_MAX
+        FROM hotel_statement hs
+        JOIN supplier s ON s.ID = hs.SUPPLIER_ID
+        WHERE LTRIM(RTRIM(hs.STATUS)) = 'PENDING'
+    ) LOOP
+        -- Concilio una reserva
+        dbms_output.put_line('  Conciliating booking '||R.RECORD_LOCATOR);
+        conciliate_booking(
+            R.ID,R.SUPPLIER_ID,R.RECORD_LOCATOR,R.AMOUNT,R.CURRENCY,
+            R.CONCILIATION_TOLERANCE_PERC, R.CONCILIATION_TOLERANCE_MAX
+        );
+        -- El extracto debe procesarse completo
+        COMMIT;
+    END LOOP;
+END conciliate_all_statements;
+```
+
 
 ### Optimizaciones Realizadas
 
