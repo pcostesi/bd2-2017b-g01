@@ -17,7 +17,7 @@ create or replace PACKAGE BODY CONCILIATE_PKG AS
       from PAYMENT_ORDER po, SUPPLIER s
       where po.supplier_id = pSupplier
       and po.supplier_id = s.id
-      and lower(po.record_locator) = lower(pRecordLocator)
+      and po.record_locator = pRecordLocator
       and rtrim(ltrim(po.status)) = 'PENDING';
 
       -- Si no paso la fecha de checkout no se puede pagar aun

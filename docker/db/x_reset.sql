@@ -54,3 +54,5 @@ EXECUTE reset_pkg.drop_index_if_exists('PO1_IDX');
 
 -- Ours
 EXECUTE reset_pkg.drop_table_if_exists('CONCILIATION_STATUS');
+EXECUTE reset_pkg.drop_index_if_exists('HOTEL_STATEMENT_RECORD_LOCATOR_UNQ');
+EXECUTE reset_pkg.drop_index_if_exists('PAYMENT_ORDER_RECORD_LOCATOR_UNQ');
