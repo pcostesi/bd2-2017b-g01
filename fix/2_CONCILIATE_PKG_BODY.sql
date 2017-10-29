@@ -1,8 +1,4 @@
---------------------------------------------------------
---  DDL for Package Body CONCILIATE_PKG
---------------------------------------------------------
-
-  CREATE OR REPLACE PACKAGE BODY "BDII_TEAM1"."CONCILIATE_PKG" AS
+create or replace PACKAGE BODY CONCILIATE_PKG AS
 
   -- Conciliacion de una reserva
   PROCEDURE conciliate_booking ( pStatementLocator VARCHAR, pHsId NUMBER, pSupplier NUMBER, pRecordLocator VARCHAR, 
@@ -150,5 +146,3 @@
   END conciliate_all_statements;
 
 END CONCILIATE_PKG;
-
-/
