@@ -1,7 +1,7 @@
 create or replace PACKAGE BODY CONCILIATE_PKG AS
 
   -- Conciliacion de una reserva
-  PROCEDURE conciliate_booking ( pStatementLocator VARCHAR, pHsId NUMBER, pSupplier NUMBER, pRecordLocator VARCHAR, 
+  PROCEDURE conciliate_booking ( pHsId NUMBER, pSupplier NUMBER, pRecordLocator VARCHAR,
                    pAmount NUMBER, pCurrency VARCHAR, vTolPercentage NUMBER, vTolMax NUMBER ) AS
     vPoId NUMBER(10);
     vAmount NUMBER(10,2);
@@ -25,11 +25,11 @@ create or replace PACKAGE BODY CONCILIATE_PKG AS
           -- Registrar que la reserva aun no puede conciliarse por estar pendiente su fecha de checkout
           dbms_output.put_line('    Checkout Pending');
           INSERT INTO CONCILIATION (
-              ID, HOTEL_STATEMENT_ID, STATEMENT_LOCATOR, PAYMENT_ORDER_ID, 
+              ID, HOTEL_STATEMENT_ID, PAYMENT_ORDER_ID,
               CONCILIATED_AMOUNT, CONCILIATED_AMOUNT_CURRENCY, 
               ADJUSTMENT_AMOUNT, ADJUSTMENT_AMOUNT_CURRENCY,
               STATUS, CREATED, MODIFIED)
-          VALUES (CONCILIATION_SEQ.nextval, pHsId, pStatementLocator, null,
+          VALUES (CONCILIATION_SEQ.nextval, pHsId, null,
               null, null, null, null,
               'CHECKOUT_PENDING',sysdate,sysdate);
           UPDATE HOTEL_STATEMENT SET STATUS = 'CHECKOUT_PENDING', MODIFIED = SYSDATE
@@ -39,11 +39,11 @@ create or replace PACKAGE BODY CONCILIATE_PKG AS
           -- Registrar que la moneda indicada en el extracto no es la correcta
           dbms_output.put_line('    Wrong Currency');
           INSERT INTO CONCILIATION (
-              ID, HOTEL_STATEMENT_ID, STATEMENT_LOCATOR, PAYMENT_ORDER_ID, 
+              ID, HOTEL_STATEMENT_ID, PAYMENT_ORDER_ID,
               CONCILIATED_AMOUNT, CONCILIATED_AMOUNT_CURRENCY, 
               ADJUSTMENT_AMOUNT, ADJUSTMENT_AMOUNT_CURRENCY,
               STATUS, CREATED, MODIFIED)
-          VALUES (CONCILIATION_SEQ.nextval, pHsId, pStatementLocator, null,
+          VALUES (CONCILIATION_SEQ.nextval, pHsId, null,
               null, null, null, null,
               'WRONG_CURRENCY',sysdate,sysdate);
           UPDATE HOTEL_STATEMENT SET STATUS = 'WRONG_CURRENCY', MODIFIED = SYSDATE
@@ -53,11 +53,11 @@ create or replace PACKAGE BODY CONCILIATE_PKG AS
           -- Registrar que se aprueba la conciliacion de la reserva
           dbms_output.put_line('    Conciliated');
           INSERT INTO CONCILIATION (
-              ID, HOTEL_STATEMENT_ID, STATEMENT_LOCATOR, PAYMENT_ORDER_ID, 
+              ID, HOTEL_STATEMENT_ID, PAYMENT_ORDER_ID,
               CONCILIATED_AMOUNT, CONCILIATED_AMOUNT_CURRENCY, 
               ADJUSTMENT_AMOUNT, ADJUSTMENT_AMOUNT_CURRENCY,
               STATUS, CREATED, MODIFIED)
-          VALUES (CONCILIATION_SEQ.nextval, pHsId, pStatementLocator, vPoId,
+          VALUES (CONCILIATION_SEQ.nextval, pHsId, vPoId,
               pAmount, pCurrency, round(vAmount-pAmount,2), pCurrency,
               'CONCILIATED',sysdate,sysdate);
           UPDATE HOTEL_STATEMENT SET STATUS = 'CONCILIATED', MODIFIED = SYSDATE
@@ -69,11 +69,11 @@ create or replace PACKAGE BODY CONCILIATE_PKG AS
           -- Registrar que la reserva no puede conciliarse por diferencia de monto
           dbms_output.put_line('    Error Tolerance');
           INSERT INTO CONCILIATION (
-              ID, HOTEL_STATEMENT_ID, STATEMENT_LOCATOR, PAYMENT_ORDER_ID, 
+              ID, HOTEL_STATEMENT_ID, PAYMENT_ORDER_ID,
               CONCILIATED_AMOUNT, CONCILIATED_AMOUNT_CURRENCY, 
               ADJUSTMENT_AMOUNT, ADJUSTMENT_AMOUNT_CURRENCY,
               STATUS, CREATED, MODIFIED)
-          VALUES (CONCILIATION_SEQ.nextval, pHsId, pStatementLocator, vPoId,
+          VALUES (CONCILIATION_SEQ.nextval, pHsId, vPoId,
               pAmount, pCurrency, null, null,
               'ERROR_TOLERANCE',sysdate,sysdate);
           UPDATE HOTEL_STATEMENT SET STATUS = 'ERROR_TOLERANCE', MODIFIED = SYSDATE
@@ -85,11 +85,11 @@ create or replace PACKAGE BODY CONCILIATE_PKG AS
           -- Registrar que no se encontro una reserva de las caracteriticas que el hotelero indico
           dbms_output.put_line('    Not Found');
           INSERT INTO CONCILIATION (
-              ID, HOTEL_STATEMENT_ID, STATEMENT_LOCATOR, PAYMENT_ORDER_ID, 
+              ID, HOTEL_STATEMENT_ID, PAYMENT_ORDER_ID,
               CONCILIATED_AMOUNT, CONCILIATED_AMOUNT_CURRENCY, 
               ADJUSTMENT_AMOUNT, ADJUSTMENT_AMOUNT_CURRENCY,
               STATUS, CREATED, MODIFIED)
-          VALUES (CONCILIATION_SEQ.nextval, pHsId, pStatementLocator, null,
+          VALUES (CONCILIATION_SEQ.nextval, pHsId, null,
               null, null, null, null,
               'NOT_FOUND',sysdate,sysdate);
           UPDATE HOTEL_STATEMENT SET STATUS = 'NOT_FOUND'
@@ -121,7 +121,7 @@ create or replace PACKAGE BODY CONCILIATE_PKG AS
 
         -- Concilio una reserva
         dbms_output.put_line('  Conciliating booking '||R.RECORD_LOCATOR);
-        conciliate_booking(pStatementLocator,R.ID,R.SUPPLIER_ID,R.RECORD_LOCATOR,R.AMOUNT,R.CURRENCY,vTolPercentage,vTolMax);
+        conciliate_booking(R.ID,R.SUPPLIER_ID,R.RECORD_LOCATOR,R.AMOUNT,R.CURRENCY,vTolPercentage,vTolMax);
     END LOOP;
 
     -- El extracto debe procesarse completo
