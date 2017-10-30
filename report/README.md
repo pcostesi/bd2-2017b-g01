@@ -137,6 +137,22 @@ Por ultimo se destaca el cambio de condiciones de `WHERE ltrim(rtrim(...))` por 
 ...
 ```
 
+#### Una sola query (resolviendo el problema N+1)
+
+En esta etapa nos queda un script que hace dos operaciones:
+1. Busca `HOTEL_STATEMENT`s en estado `PENDING` para analizar.
+2. Por cada resultado en `HOTEL_STATEMENT` llama a `conciliate_booking`
+    a. Busca las `PAYMENT_ORDER`s relacionadas a través de `RECORD_LOCATOR`.
+    b. Realiza una serie de chequeos y graba en `CONCILIATION` el record con el resultado en base a diferentes escenarios posibles.
+
+Este es un claro ejemplo del antipatrón N+1, primero hacemos una query de búsqueda (`1.`) y luego por cada resultado realizamos otra query para buscar mas información relacionada (`2.a`). Esto afecta a la perforance porque tener un quiebre desde la lógica del script no permite al motor de base de datos realizar las optimizaciones pertientes a la hora de buscar los datos todos juntos.
+
+Para poder ir a buscar `PAYMENT_ORDER`s en la misma query original es importante destacar que tiene que hacerse a través de un `LEFT JOIN` porque nos interesa atrapar el caso de `NOT_FOUND` que se venia comprobando como una `EXCEPTION WHEN NO_DATA_FOUND`. En su lugar revisaremos cuando llegue un `NULL` en `vPoId` significa que no encontró la orden que queríamos.
+
+Con este cambio nos quedan dos procedures en nuestra implementación final:
+1. `CONCILIATE_PKG.conciliate_all_statements`. Es público (definido en el package) y realiza la query que levanta toda la infornación necesaría para la conciliación.
+2. `CONCILIATE_PKG.conciliate_booking`. Es privada, recibe todos los parámetros necesarios para realizar una conciliación y contiene la lógica de negocio para definir si la conciliación es correcta guardando el resultado en la tabla `CONCILIATION`.
+
 ## Resultados
 
 ### Plan de Ejecución
