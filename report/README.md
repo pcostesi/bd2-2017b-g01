@@ -23,6 +23,13 @@
 
 ### Problemas Encontrados
 
+#### Supplier.status nunca se usa
+En la tabla Supplier, existe el campo `status`. Este campo nunca es utilizado en el procedure por lo que en el caso de que exista algun registro que no sea `status='ACTIVE'`, no va a ser tenido en cuenta en el Procedure.
+
+Se decidió no cambiar esta lógica porque el objetivo de esta trabajo es sólo performance.
+
+### Optimizaciones Realizadas
+
 #### REMOVER `STATEMENT_LOCATOR` de `conciliate_booking`
 El procedure `conciliate_booking` recibe como primer parámetro `STATEMENT_LOCATOR` y en la tabla `CONCILIATION` se está guardando el mismo. Este parámetro carece de total sentido debido a que un `HOTEL_STATEMENT` posee ya una *Primary Key* (`HOTEL_STATEMENT.ID`). Además esta columna no posee indice (como sí posee la `PK`) y el tipo de la columna `CONCILIATION.STATEMENT_LOCATOR` es inconsistente con el de la columna `HOTEL_STATEMENT.STATEMENT_LOCATOR`.
 
@@ -96,8 +103,39 @@ BEGIN
 END conciliate_all_statements;
 ```
 
+#### Conciliation STATUS
+En la conciliación se utiliza el concepto de `STATUS`.
+Las tablas `CONCILIATION`, `HOTEL_STATEMENT` y `PAYMENT_ORDER` todas poseen una columna `STATUS`, pero las mismas no tienen indice y tienen tipos diferentes. Además en el paquete se implementan condiciones que por mas de que haya un indice, no sería utilizado: `rtrim(ltrim(po.status)) = 'PENDING'`. Por último, nos llamó la atención que si bien las tablas `HOTEL_STATEMENT` y `PAYMENT_ORDER` tienen la columna STATUS, no parece tener sentido que esto sea así, dado que es un dato propio de la conciliación, evidencia de esto es que se replica el mismo valor de STATUS en todos las las tablas correspondientes (dependiendo del resultado).
 
-### Optimizaciones Realizadas
+Debido a que la cantidad de `STATUS` values esperados es limitada, se decidió utilizar `NUMBER(1, 0)` para el tipo de dato de la `PK` y se agregó un `BITMAP INDEX` en la tabla `CONCILIATION` para su utilización. Esto mejora tanto en size como en performance el chequeo de `STATUS`.
+
+Por todo lo mencionado se decidió extraer el concepto de STATUS a una nueva tabla CONCILIATION_STATUS y reemplazar el `CHAR` type por una `PK` a la misma; de esta forma nos aseguramos que existe el indice, los tipos coinciden y no hace falta realizar transformaciones romo el `rtrim` y `ltrim`. Se creó una *vista* `CONCILIATION_WS` para que el usuario final pueda tener una experiencia similar a la anterior mostrando el `STATUS.NAME` en lugar de `STATUS_ID`.
+
+Tambien se quitaron las columnas `STATUS` de `HOTEL_STATEMENT` y `PAYMENT_ORDER`, pero en esta dos no fue reemplazado por el `STATUS_ID` porque nos pareció irrelevante la información para estas tablas. No obstante se crearon las *vistas* `HOTEL_STATEMENT_WS` y `PAYMENT_ORDER_WS` que realizan el correspondiente `JOIN` a `CONCILIATION` para mostrar el estado correspondiente (si en la tabla `CONCILIATION` no hay un registro relacionado se muestra `'PENDING'`).
+
+Por ultimo se destaca el cambio de condiciones de `WHERE ltrim(rtrim(...))` por ANTIJOINS en los siguientes casos:
+`conciliate_all_statements`:
+```
+...
+-            WHERE LTRIM(RTRIM(hs.STATUS)) = 'PENDING'
++            WHERE hs.id NOT IN (
++                SELECT hotel_statement_id
++                FROM conciliation
++            )
+...
+```
+
+`conciliate_booking`:
+```
+...
+-      and rtrim(ltrim(po.status)) = 'PENDING';
++      and po.id NOT IN (
++        SELECT payment_order_id
++        FROM conciliation
++        WHERE payment_order_id IS NOT NULL
++      );
+...
+```
 
 ## Resultados
 
