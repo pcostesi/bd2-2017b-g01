@@ -139,7 +139,7 @@ Por ultimo se destaca el cambio de condiciones de `WHERE ltrim(rtrim(...))` por 
 
 #### Una sola query (resolviendo el problema N+1)
 
-En esta etapa nos queda un script que hace dos queries:
+En esta etapa nos queda un script que hace dos operaciones:
 1. Busca `HOTEL_STATEMENT`s en estado `PENDING` para analizar.
 2. Por cada resultado en `HOTEL_STATEMENT` llama a `conciliate_booking`
     a. Busca las `PAYMENT_ORDER`s relacionadas a través de `RECORD_LOCATOR`.
