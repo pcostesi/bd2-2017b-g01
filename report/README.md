@@ -118,7 +118,9 @@ A su vez se agregó el indice `UNIQUE` para garantizar que sea unívoco el acces
 
 #### Mejora 2 - Eliminación completa del paso intermedio `conciliate_statement`
 
-El script `conciliate_all_statements` estaba iterando por las rows de `hotel_statement` en  `STATUS='PENDING'` y luego en el `LOOP` invocando a `conciliate_statement` con un único parámetro `STATEMENT_LOCATOR`. Ya hemos mencionado la innecesidad de utilizar la columna `STATEMENT_LOCATOR`, la ausencia de indice en ella. Por último esta procedure hace una búsqueda del SUPPLIER para obtener los valores `vTolPercentage` y `vTolMax` para finalmente invocar a `conciliate_booking`.
+El script `conciliate_all_statements` estaba iterando por las rows de `hotel_statement` en `STATUS='PENDING'` y luego en el `LOOP` invocando a `conciliate_statement` con un único parámetro `STATEMENT_LOCATOR`. Ya hemos mencionado la innecesidad de utilizar la columna `STATEMENT_LOCATOR`, la ausencia de indice en ella. La utilización de `STATEMENT_LOCATOR` hace que tengamos que realizar una query *extra* para hallar los `HOTEL_STATEMENT` *candidatos* porque previamente se tuvo que desambiguar con `DISTINCT` debido a que el `STATEMENT_LOCATOR` no representa unívocamente una row.
+
+Por último esta procedure hace una búsqueda del SUPPLIER para obtener los valores `vTolPercentage` y `vTolMax` para finalmente invocar a `conciliate_booking`.
 
 Debido a que todo este paso intermedio es innecesario podemos remover la clausula `conciliate_statement` por completo como así también la columna `STATEMENT_LOCATOR` de `HOTEL_STATEMENT` y realizar directamente en `conciliate_all_statements` un LOOP conteniendo toda la información necesaria y llamar directamente a `conciliate_booking` desde allí:
 ```SQL
@@ -185,10 +187,10 @@ Por ultimo se destaca el cambio de condiciones de `WHERE ltrim(rtrim(...))` por 
 En esta etapa nos queda un script que hace dos operaciones:
 1. Busca `HOTEL_STATEMENT`s en estado `PENDING` para analizar.
 2. Por cada resultado en `HOTEL_STATEMENT` llama a `conciliate_booking`
-    a. Busca las `PAYMENT_ORDER`s relacionadas a través de `RECORD_LOCATOR`.
-    b. Realiza una serie de chequeos y graba en `CONCILIATION` el record con el resultado en base a diferentes escenarios posibles.
+    1. Busca las `PAYMENT_ORDER`s relacionadas a través de `RECORD_LOCATOR`.
+    2. Realiza una serie de chequeos y graba en `CONCILIATION` el record con el resultado en base a diferentes escenarios posibles.
 
-Este es un claro ejemplo del antipatrón N+1, primero hacemos una query de búsqueda (`1.`) y luego por cada resultado realizamos otra query para buscar mas información relacionada (`2.a`). Esto afecta a la perforance porque tener un quiebre desde la lógica del script no permite al motor de base de datos realizar las optimizaciones pertientes a la hora de buscar los datos todos juntos.
+Este es un claro ejemplo del antipatrón N+1, primero hacemos una query de búsqueda (`1.`) y luego por cada resultado realizamos otra query para buscar mas información relacionada (`2.2`). Esto afecta a la performance porque tener un quiebre desde la lógica del script no permite al motor de base de datos realizar las optimizaciones pertientes a la hora de buscar los datos todos juntos.
 
 Para poder ir a buscar `PAYMENT_ORDER`s en la misma query original es importante destacar que tiene que hacerse a través de un `LEFT JOIN` porque nos interesa atrapar el caso de `NOT_FOUND` que se venia comprobando como una `EXCEPTION WHEN NO_DATA_FOUND`. En su lugar revisaremos cuando llegue un `NULL` en `vPoId` significa que no encontró la orden que queríamos.
 
