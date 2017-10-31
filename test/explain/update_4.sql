@@ -1,20 +1,20 @@
 
 	/**
-	* CBO Explain for UPDATE-3:
-	*		"Conciliation Status Refactor"
+	* CBO Explain for UPDATE-4:
+	*		"(N + 1) Anti-pattern Fix"
 	*/
 
 	/* Resultados:
 
 	STATEMENT_ID                         COST    IO_COST   CPU_COST      BYTES CARDINALITY
 	------------------------------ ---------- ---------- ---------- ---------- -----------
-	UPDATE-3:INSERT-CONCILIATION            1          1          0        100           1	CHANGED!
-	UPDATE-3:SELECT-1                       4          4     300236         53           1	CHANGED!
-	UPDATE-3:SELECT-2                       0          0          0          0           0
-	UPDATE-3:SELECT-3                       0          0          0          0           0
-	UPDATE-3:SELECT-4                      41         40   20451109      57036        1164	CHANGED!
-	UPDATE-3:UPDATE-HOTEL_STATE             0          0          0          0           0	CHANGED!
-	UPDATE-3:UPDATE-PAYMENT_ORDER           0          0          0          0           0	CHANGED!
+	UPDATE-4:INSERT-CONCILIATION            1          1          0        100           1
+	UPDATE-4:SELECT-1                       0          0          0          0           0	CHANGED!
+	UPDATE-4:SELECT-2                       0          0          0          0           0
+	UPDATE-4:SELECT-3                       0          0          0          0           0
+	UPDATE-4:SELECT-4                    4716       4696  369925906     114072        1164	CHANGED!
+	UPDATE-4:UPDATE-HOTEL_STATE             0          0          0          0           0
+	UPDATE-4:UPDATE-PAYMENT_ORDER           0          0          0          0           0
 	*/
 
 	ALTER SESSION SET OPTIMIZER_MODE = CHOOSE;
@@ -37,26 +37,8 @@
 	DELETE FROM PLAN_TABLE;
 
 	/* --------------------------------------------------------------------- */
-	/* CHANGED! */
 	EXPLAIN PLAN
-		SET STATEMENT_ID = 'UPDATE-3:SELECT-1'
-		INTO PLAN_TABLE FOR
-			select /*+ MERGE */
-				po.ID, po.TOTAL_COST, po.TOTAL_COST_CURRENCY,
-				po.CHECKIN, po.CHECKOUT
-			from PAYMENT_ORDER po, SUPPLIER s
-			where po.supplier_id = 9
-				and po.supplier_id = s.id
-				and po.record_locator = 'bbgtid'
-				and po.id NOT IN (
-					SELECT payment_order_id
-					FROM conciliation
-					WHERE payment_order_id IS NOT NULL
-				);
-	/* --------------------------------------------------------------------- */
-	/* CHANGED! */
-	EXPLAIN PLAN
-		SET STATEMENT_ID = 'UPDATE-3:INSERT-CONCILIATION'
+		SET STATEMENT_ID = 'UPDATE-4:INSERT-CONCILIATION'
 		INTO PLAN_TABLE FOR
 			INSERT INTO CONCILIATION (
 				ID, HOTEL_STATEMENT_ID, PAYMENT_ORDER_ID,
@@ -70,14 +52,24 @@
 	/* --------------------------------------------------------------------- */
 	/* CHANGED! */
 	EXPLAIN PLAN
-		SET STATEMENT_ID = 'UPDATE-3:SELECT-4'
+		SET STATEMENT_ID = 'UPDATE-4:SELECT-4'
 		INTO PLAN_TABLE FOR
 			SELECT
 				hs.ID, hs.SUPPLIER_ID, hs.RECORD_LOCATOR, hs.AMOUNT,
 				hs.CURRENCY, s.CONCILIATION_TOLERANCE_PERC,
-				s.CONCILIATION_TOLERANCE_MAX
+				s.CONCILIATION_TOLERANCE_MAX, po.ID vPoId, po.TOTAL_COST,
+				po.TOTAL_COST_CURRENCY, po.CHECKIN, po.CHECKOUT
 			FROM hotel_statement hs
 			JOIN supplier s ON s.ID = hs.SUPPLIER_ID
+			LEFT JOIN payment_order po ON (
+				po.RECORD_LOCATOR = hs.RECORD_LOCATOR
+					AND po.supplier_id = hs.supplier_id
+					AND po.id NOT IN (
+						SELECT payment_order_id
+						FROM conciliation
+						WHERE payment_order_id IS NOT NULL
+					)
+			)
 			WHERE hs.id NOT IN (
 				SELECT hotel_statement_id
 				FROM conciliation
