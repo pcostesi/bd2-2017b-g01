@@ -56,3 +56,6 @@ EXECUTE reset_pkg.drop_index_if_exists('PO1_IDX');
 EXECUTE reset_pkg.drop_table_if_exists('CONCILIATION_STATUS');
 EXECUTE reset_pkg.drop_index_if_exists('HOTEL_STATEMENT_RECORD_LOCATOR');
 EXECUTE reset_pkg.drop_index_if_exists('PAYMENT_ORDER_RECORD_LOCATOR');
+
+-- CBO
+EXECUTE reset_pkg.drop_table_if_exists('PLAN_TABLE');
