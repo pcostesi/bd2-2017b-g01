@@ -1,23 +1,45 @@
-# Trabajo Práctico Especial
-> Bases de Datos 2
+# Conciliación de extractos de hoteles
+> Trabajo Práctico Especial de Bases de Datos 2
+
+
+Integrantes:
+* Pablo Alejandro Costesich, 50109
+* Horacio Miguel Gómez, 50825
+* Juan Pablo Orsay, 49373
+* Sebastián Maio, 50386
+* Agustin Golmar, 53396
 
 <!-- TOC -->
 
-- [Trabajo Práctico Especial](#trabajo-práctico-especial)
-    - [Integrantes](#integrantes)
-    - [Objetivos](#objetivos)
+- [Conciliación de extractos de hoteles](#conciliación-de-extractos-de-hoteles)
+    - [Introducción](#introducción)
+    - [Situación inicial](#situación-inicial)
     - [Análisis de la Solución](#análisis-de-la-solución)
         - [Problemas Encontrados](#problemas-encontrados)
+            - [Los tablespaces no son auto-extensibles](#los-tablespaces-no-son-auto-extensibles)
+            - [Supplier.status nunca se usa](#supplierstatus-nunca-se-usa)
         - [Optimizaciones Realizadas](#optimizaciones-realizadas)
+            - [Mejora 0 - REMOVER `STATEMENT_LOCATOR` de `conciliate_booking`](#mejora-0---remover-statement_locator-de-conciliate_booking)
+            - [Mejora 1 - Columna RECORD_LOCATOR en PAYMENT_ORDER y HOTEL_STATEMENT](#mejora-1---columna-record_locator-en-payment_order-y-hotel_statement)
+            - [Mejora 2 - Eliminación completa del paso intermedio `conciliate_statement`](#mejora-2---eliminación-completa-del-paso-intermedio-conciliate_statement)
+            - [Mejora 3 - Conciliation STATUS](#mejora-3---conciliation-status)
+            - [Mejora 4 - Una sola query (resolviendo el problema N+1)](#mejora-4---una-sola-query-resolviendo-el-problema-n1)
+            - [Mejora 5 - Final Stage](#mejora-5---final-stage)
     - [Resultados](#resultados)
         - [Plan de Ejecución](#plan-de-ejecución)
         - [Recomendaciones](#recomendaciones)
 
 <!-- /TOC -->
 
-## Integrantes
+## Introducción
+Una empresa de turismo desea optimizar un proceso de conciliación. Este proceso contrasta los extractos que les envían los hoteles contra los registros de ventas de la empresa, y sirve para verificar el pago que se le debe hacer a los hoteles proveedores por las reservas generadas.
+Por desgracia, no hay documentacion asociada al proceso. La empresa que realizó el desarrollo original no entregó la documentación esperada ya que terminaron su contrato de mala manera: hubo una historia de incumplimientos en fechas de entrega y la performance del sistema no es la esperada.
 
-## Objetivos
+
+## Situación inicial
+Tanto en el schema de la base como en los procedures intervinientes en la conciliación, se notan muchas inconsistencias y redundancias de operaciones. Esto es comprobado al ejecutar las consultas, las cuales presentan tiempos de ejecución elevados.
+Estos están disponibles en el anexo.
+
 
 ## Análisis de la Solución
 
@@ -42,14 +64,14 @@ Se decidió no cambiar esta lógica porque el objetivo de esta trabajo es sólo 
 
 ### Optimizaciones Realizadas
 
-#### REMOVER `STATEMENT_LOCATOR` de `conciliate_booking`
+#### Mejora 0 - REMOVER `STATEMENT_LOCATOR` de `conciliate_booking`
 El procedure `conciliate_booking` recibe como primer parámetro `STATEMENT_LOCATOR` y en la tabla `CONCILIATION` se está guardando el mismo. Este parámetro carece de total sentido debido a que un `HOTEL_STATEMENT` posee ya una *Primary Key* (`HOTEL_STATEMENT.ID`). Además esta columna no posee indice (como sí posee la `PK`) y el tipo de la columna `CONCILIATION.STATEMENT_LOCATOR` es inconsistente con el de la columna `HOTEL_STATEMENT.STATEMENT_LOCATOR`.
 
 Por todas estas razones se removió la columna `STATEMENT_LOCATOR` de `CONCILIATION` y se quitó el primer parámetro de `conciliate_booking` acordemente. (El segundo parámetro es la PK mencionada `pHsId`).
 
 No se removió en el contexto de este cambio la columna `STATEMENT_LOCATOR` de `HOTEL_STATEMENT` porque luego en un cambio más grande esta columna sera removida por completo.
 
-#### Columna RECORD_LOCATOR en PAYMENT_ORDER y HOTEL_STATEMENT
+#### Mejora 1 - Columna RECORD_LOCATOR en PAYMENT_ORDER y HOTEL_STATEMENT
 
 Una de las primeras mejoras analizadas fue la posibilidad de modificar el uso de RECORD_LOCATOR por directamente una referencia a la *Primary Key* como se muestra a continuación:
 ```
@@ -85,7 +107,7 @@ A su vez se agregó el indice `UNIQUE` para garantizar que sea unívoco el acces
 
 Éste último cambio nos lleva a pensar una limitación que tiene el sistema actual, el `RECORD_LOCATOR` es de tipo `CHAR(6 BYTE)`, la cardinalidad de este tipo es mucho menor a la de nuestras PKs de `NUMBER(10, 0)`, por lo que en algún momento el sistema se va a quedar sin RECORD_LOCATOR que generar. Se pensó en cambiar la columna de `RECORD_LOCATOR` por otra cosa, pero debido a que el origen de este dato es incierto se decidió dejarlo como está y hacer esta mención en el informe.
 
-#### Eliminación completa del paso intermedio `conciliate_statement`
+#### Mejora 2 - Eliminación completa del paso intermedio `conciliate_statement`
 
 El script `conciliate_all_statements` estaba iterando por las rows de `hotel_statement` en  `STATUS='PENDING'` y luego en el `LOOP` invocando a `conciliate_statement` con un único parámetro `STATEMENT_LOCATOR`. Ya hemos mencionado la innecesidad de utilizar la columna `STATEMENT_LOCATOR`, la ausencia de indice en ella. Por último esta procedure hace una búsqueda del SUPPLIER para obtener los valores `vTolPercentage` y `vTolMax` para finalmente invocar a `conciliate_booking`.
 
@@ -115,7 +137,7 @@ BEGIN
 END conciliate_all_statements;
 ```
 
-#### Conciliation STATUS
+#### Mejora 3 - Conciliation STATUS
 En la conciliación se utiliza el concepto de `STATUS`.
 Las tablas `CONCILIATION`, `HOTEL_STATEMENT` y `PAYMENT_ORDER` todas poseen una columna `STATUS`, pero las mismas no tienen indice y tienen tipos diferentes. Además en el paquete se implementan condiciones que por mas de que haya un indice, no sería utilizado: `rtrim(ltrim(po.status)) = 'PENDING'`. Por último, nos llamó la atención que si bien las tablas `HOTEL_STATEMENT` y `PAYMENT_ORDER` tienen la columna STATUS, no parece tener sentido que esto sea así, dado que es un dato propio de la conciliación, evidencia de esto es que se replica el mismo valor de STATUS en todos las las tablas correspondientes (dependiendo del resultado).
 
@@ -149,7 +171,7 @@ Por ultimo se destaca el cambio de condiciones de `WHERE ltrim(rtrim(...))` por 
 ...
 ```
 
-#### Una sola query (resolviendo el problema N+1)
+#### Mejora 4 - Una sola query (resolviendo el problema N+1)
 
 En esta etapa nos queda un script que hace dos operaciones:
 1. Busca `HOTEL_STATEMENT`s en estado `PENDING` para analizar.
@@ -164,6 +186,15 @@ Para poder ir a buscar `PAYMENT_ORDER`s en la misma query original es importante
 Con este cambio nos quedan dos procedures en nuestra implementación final:
 1. `CONCILIATE_PKG.conciliate_all_statements`. Es público (definido en el package) y realiza la query que levanta toda la infornación necesaría para la conciliación.
 2. `CONCILIATE_PKG.conciliate_booking`. Es privada, recibe todos los parámetros necesarios para realizar una conciliación y contiene la lógica de negocio para definir si la conciliación es correcta guardando el resultado en la tabla `CONCILIATION`.
+
+
+#### Mejora 5 - Final Stage
+Finalmente todo lo que queda es preparar el sistema para el despliegue final, lo que
+    * implica reconstruir los índices con el estado actual, y computar las
+    * estadísticas completas sobre todas las tablas para mejorar el CBO.
+
+[!][]Ss
+
 
 ## Resultados
 
