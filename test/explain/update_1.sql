@@ -1,20 +1,20 @@
 
 	/**
-	* CBO Explain for UPDATE-0:
-	*		"Remove Statement Locator"
+	* CBO Explain for UPDATE-1:
+	*		"Improve Record Locator"
 	*/
 
 	/* Resultados:
 
 	STATEMENT_ID                         COST    IO_COST   CPU_COST      BYTES CARDINALITY
 	------------------------------ ---------- ---------- ---------- ---------- -----------
-	UPDATE-0:INSERT-CONCILIATION            1          1          0        100           1	CHANGED!
-	UPDATE-0:SELECT-1                      23         23    1485611         61           1
-	UPDATE-0:SELECT-2                      34         34    1612020        246           1
-	UPDATE-0:SELECT-3                       2          2      11631         12           1
-	UPDATE-0:SELECT-4                      35         34   20532047       2442          11
-	UPDATE-0:UPDATE-HOTEL_STATE             2          2      11671        216           1
-	UPDATE-0:UPDATE-PAYMENT_ORDER           2          2      11731         59           1
+	UPDATE-1:INSERT-CONCILIATION            1          1          0        100           1
+	UPDATE-1:SELECT-1                       2          2      11747         61           1	CHANGED!
+	UPDATE-1:SELECT-2                      34         34    1612020        246           1
+	UPDATE-1:SELECT-3                       2          2      11631         12           1
+	UPDATE-1:SELECT-4                      35         34   20532047       2442          11
+	UPDATE-1:UPDATE-HOTEL_STATE             2          2      11671        216           1
+	UPDATE-1:UPDATE-PAYMENT_ORDER           2          2      11731         59           1
 	*/
 
 	ALTER SESSION SET OPTIMIZER_MODE = CHOOSE;
@@ -35,8 +35,9 @@
 	DELETE FROM PLAN_TABLE;
 
 	/* --------------------------------------------------------------------- */
+	/* CHANGED! */
 	EXPLAIN PLAN
-		SET STATEMENT_ID = 'UPDATE-0:SELECT-1'
+		SET STATEMENT_ID = 'UPDATE-1:SELECT-1'
 		INTO PLAN_TABLE FOR
 			select /*+ MERGE */
 				po.ID, po.TOTAL_COST, po.TOTAL_COST_CURRENCY,
@@ -44,12 +45,11 @@
 			from PAYMENT_ORDER po, SUPPLIER s
 			where po.supplier_id = 9
 				and po.supplier_id = s.id
-				and lower(po.record_locator) = lower('BBGTID')
+				and po.record_locator = 'bbgtid'
 				and rtrim(ltrim(po.status)) = 'PENDING';
 	/* --------------------------------------------------------------------- */
-	/* CHANGED! */
 	EXPLAIN PLAN
-		SET STATEMENT_ID = 'UPDATE-0:INSERT-CONCILIATION'
+		SET STATEMENT_ID = 'UPDATE-1:INSERT-CONCILIATION'
 		INTO PLAN_TABLE FOR
 			INSERT INTO CONCILIATION (
 				ID, HOTEL_STATEMENT_ID, PAYMENT_ORDER_ID,
@@ -62,19 +62,19 @@
 					'CHECKOUT_PENDING', sysdate, sysdate);
 	/* --------------------------------------------------------------------- */
 	EXPLAIN PLAN
-		SET STATEMENT_ID = 'UPDATE-0:UPDATE-HOTEL_STATE'
+		SET STATEMENT_ID = 'UPDATE-1:UPDATE-HOTEL_STATE'
 		INTO PLAN_TABLE FOR
 			UPDATE HOTEL_STATEMENT SET STATUS = 'CHECKOUT_PENDING', MODIFIED = SYSDATE
 			WHERE ID = '1';
 	/* --------------------------------------------------------------------- */
 	EXPLAIN PLAN
-		SET STATEMENT_ID = 'UPDATE-0:UPDATE-PAYMENT_ORDER'
+		SET STATEMENT_ID = 'UPDATE-1:UPDATE-PAYMENT_ORDER'
 		INTO PLAN_TABLE FOR
 			UPDATE PAYMENT_ORDER SET STATUS = 'CONCILIATED', MODIFIED = SYSDATE
 			WHERE ID = '1';
 	/* --------------------------------------------------------------------- */
 	EXPLAIN PLAN
-		SET STATEMENT_ID = 'UPDATE-0:SELECT-2'
+		SET STATEMENT_ID = 'UPDATE-1:SELECT-2'
 		INTO PLAN_TABLE FOR
 			SELECT
 				hs.ID, hs.SUPPLIER_ID, hs.RECORD_LOCATOR,
@@ -84,14 +84,14 @@
 			AND LTRIM(RTRIM(hs.STATUS)) = 'PENDING';
 	/* --------------------------------------------------------------------- */
 	EXPLAIN PLAN
-		SET STATEMENT_ID = 'UPDATE-0:SELECT-3'
+		SET STATEMENT_ID = 'UPDATE-1:SELECT-3'
 		INTO PLAN_TABLE FOR
 			SELECT s.CONCILIATION_TOLERANCE_PERC, s.CONCILIATION_TOLERANCE_MAX
 			FROM supplier s
 			WHERE s.ID = '1';
 	/* --------------------------------------------------------------------- */
 	EXPLAIN PLAN
-		SET STATEMENT_ID = 'UPDATE-0:SELECT-4'
+		SET STATEMENT_ID = 'UPDATE-1:SELECT-4'
 		INTO PLAN_TABLE FOR
 			SELECT distinct hs.statement_locator
 			FROM hotel_statement hs
