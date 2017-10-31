@@ -68,13 +68,13 @@ Al analizar el resultado de esta query notamos que No existe una correlación 1 
 Mantener esta columna de "incierto origen", requiere que se tenga mas cuidado con el cambio realizado, es por esto que se decidió agregar el siguiente código a nuestro update:
 ```
 ALTER TABLE HOTEL_STATEMENT
-    ADD CONSTRAINT HOTEL_STATEMENT_RECORD_LOCATOR_UPPER
+    ADD CONSTRAINT HS_RECORD_LOCATOR_UPPER
         CHECK (upper(RECORD_LOCATOR) = RECORD_LOCATOR);
 CREATE UNIQUE INDEX HOTEL_STATEMENT_RECORD_LOCATOR
     ON HOTEL_STATEMENT(RECORD_LOCATOR);
 
 ALTER TABLE PAYMENT_ORDER
-    ADD CONSTRAINT PAYMENT_ORDER_RECORD_LOCATOR_UPPER
+    ADD CONSTRAINT PO_RECORD_LOCATOR_UPPER
         CHECK (upper(RECORD_LOCATOR) = RECORD_LOCATOR);
 CREATE UNIQUE INDEX PAYMENT_ORDER_RECORD_LOCATOR
     ON PAYMENT_ORDER(RECORD_LOCATOR);
