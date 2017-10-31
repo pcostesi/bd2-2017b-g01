@@ -3,6 +3,7 @@
 
 
 Integrantes:
+
 * Pablo Alejandro Costesich, 50109
 * Horacio Miguel Gómez, 50825
 * Juan Pablo Orsay, 49373
@@ -20,8 +21,8 @@ Integrantes:
             - [Los tablespaces no son auto-extensibles](#los-tablespaces-no-son-auto-extensibles)
             - [Supplier.status nunca se usa](#supplierstatus-nunca-se-usa)
         - [Optimizaciones Realizadas](#optimizaciones-realizadas)
-            - [Mejora 0 - REMOVER `STATEMENT_LOCATOR` de `conciliate_booking`](#mejora-0---remover-statement_locator-de-conciliate_booking)
-            - [Mejora 1 - Columna RECORD_LOCATOR en PAYMENT_ORDER y HOTEL_STATEMENT](#mejora-1---columna-record_locator-en-payment_order-y-hotel_statement)
+            - [Mejora 0 - Eliminar `STATEMENT_LOCATOR` de `conciliate_booking`](#mejora-0---eliminar-statement_locator-de-conciliate_booking)
+            - [Mejora 1 - Columna `RECORD_LOCATOR` en `PAYMENT_ORDER` y `HOTEL_STATEMENT`](#mejora-1---columna-record_locator-en-payment_order-y-hotel_statement)
             - [Mejora 2 - Eliminación completa del paso intermedio `conciliate_statement`](#mejora-2---eliminación-completa-del-paso-intermedio-conciliate_statement)
             - [Mejora 3 - Conciliation STATUS](#mejora-3---conciliation-status)
             - [Mejora 4 - Una sola query (resolviendo el problema N+1)](#mejora-4---una-sola-query-resolviendo-el-problema-n1)
@@ -72,14 +73,14 @@ Se decidió no cambiar esta lógica porque el objetivo de esta trabajo es sólo 
 
 ### Optimizaciones Realizadas
 
-#### Mejora 0 - REMOVER `STATEMENT_LOCATOR` de `conciliate_booking`
+#### Mejora 0 - Eliminar `STATEMENT_LOCATOR` de `conciliate_booking`
 El procedure `conciliate_booking` recibe como primer parámetro `STATEMENT_LOCATOR` y en la tabla `CONCILIATION` se está guardando el mismo. Este parámetro carece de total sentido debido a que un `HOTEL_STATEMENT` posee ya una *Primary Key* (`HOTEL_STATEMENT.ID`). Además esta columna no posee indice (como sí posee la `PK`) y el tipo de la columna `CONCILIATION.STATEMENT_LOCATOR` es inconsistente con el de la columna `HOTEL_STATEMENT.STATEMENT_LOCATOR`.
 
 Por todas estas razones se removió la columna `STATEMENT_LOCATOR` de `CONCILIATION` y se quitó el primer parámetro de `conciliate_booking` acordemente. (El segundo parámetro es la PK mencionada `pHsId`).
 
 No se removió en el contexto de este cambio la columna `STATEMENT_LOCATOR` de `HOTEL_STATEMENT` porque luego en un cambio más grande esta columna sera removida por completo.
 
-#### Mejora 1 - Columna RECORD_LOCATOR en PAYMENT_ORDER y HOTEL_STATEMENT
+#### Mejora 1 - Columna `RECORD_LOCATOR` en `PAYMENT_ORDER` y `HOTEL_STATEMENT`
 
 Una de las primeras mejoras analizadas fue la posibilidad de modificar el uso de RECORD_LOCATOR por directamente una referencia a la *Primary Key* como se muestra a continuación:
 ```SQL
