@@ -57,7 +57,7 @@ Estos están disponibles en el anexo.
 
 Los tablespaces `TEAM1_DATA` y `TEAM1_INDEXES` no son *autoextensibles*, por lo cual la generación de índices, las inserciones o el cálculo de nuevas conciliaciones acabarían bloqueando los procesos llevados a cabo por la empresa de turismo. Para solventar la falta de espacio físico, se alteraron las propiedades de ambos tablespaces mediante:
 
-```
+```SQL
 ALTER DATABASE DATAFILE '$ORACLE_HOME/dbs/team1_data.ora'
     AUTOEXTEND ON;
 
@@ -82,7 +82,7 @@ No se removió en el contexto de este cambio la columna `STATEMENT_LOCATOR` de `
 #### Mejora 1 - Columna RECORD_LOCATOR en PAYMENT_ORDER y HOTEL_STATEMENT
 
 Una de las primeras mejoras analizadas fue la posibilidad de modificar el uso de RECORD_LOCATOR por directamente una referencia a la *Primary Key* como se muestra a continuación:
-```
+```SQL
 ALTER TABLE PAYMENT_ORDER
     ADD HOTEL_STATEMENT_ID NUMBER(10,0) REFERENCES HOTEL_STATEMENT(ID);
 
@@ -96,7 +96,7 @@ Dado que una `PAYMENT_ORDER` se genera a partir de un `HOTEL_STATEMENT` en princ
 Al analizar el resultado de esta query notamos que No existe una correlación 1 a 1 entre estas dos tablas. Existen códigos en `RECORD_LOCATOR` que existen en `PAYMENT_ORDER` y no en `HOTEL_STATEMENT` y viceversa. Esto sugiere que el concepto de `RECORD_LOCATOR` es de orden superior al de estas dos tablas, por ejemplo puede ser que una `PAYMENT_ORDER` se pueda relacionar con otros tipos de pagos que no sean `HOTEL_STATEMENT` en otros ámbitos y es por esto que decidimos mantener dicha columna.
 
 Mantener esta columna de "incierto origen", requiere que se tenga mas cuidado con el cambio realizado, es por esto que se decidió agregar el siguiente código a nuestro update:
-```
+```SQL
 ALTER TABLE HOTEL_STATEMENT
     ADD CONSTRAINT HS_RECORD_LOCATOR_UPPER
         CHECK (upper(RECORD_LOCATOR) = RECORD_LOCATOR);
@@ -120,7 +120,7 @@ A su vez se agregó el indice `UNIQUE` para garantizar que sea unívoco el acces
 El script `conciliate_all_statements` estaba iterando por las rows de `hotel_statement` en  `STATUS='PENDING'` y luego en el `LOOP` invocando a `conciliate_statement` con un único parámetro `STATEMENT_LOCATOR`. Ya hemos mencionado la innecesidad de utilizar la columna `STATEMENT_LOCATOR`, la ausencia de indice en ella. Por último esta procedure hace una búsqueda del SUPPLIER para obtener los valores `vTolPercentage` y `vTolMax` para finalmente invocar a `conciliate_booking`.
 
 Debido a que todo este paso intermedio es innecesario podemos remover la clausula `conciliate_statement` por completo como así también la columna `STATEMENT_LOCATOR` de `HOTEL_STATEMENT` y realizar directamente en `conciliate_all_statements` un LOOP conteniendo toda la información necesaria y llamar directamente a `conciliate_booking` desde allí:
-```
+```SQL
 -- Conciliacion de todos los extractos pendientes
 PROCEDURE conciliate_all_statements AS
 BEGIN
@@ -157,7 +157,7 @@ Tambien se quitaron las columnas `STATUS` de `HOTEL_STATEMENT` y `PAYMENT_ORDER`
 
 Por ultimo se destaca el cambio de condiciones de `WHERE ltrim(rtrim(...))` por ANTIJOINS en los siguientes casos:
 `conciliate_all_statements`:
-```
+```DIFF
 ...
 -            WHERE LTRIM(RTRIM(hs.STATUS)) = 'PENDING'
 +            WHERE hs.id NOT IN (
@@ -168,7 +168,7 @@ Por ultimo se destaca el cambio de condiciones de `WHERE ltrim(rtrim(...))` por 
 ```
 
 `conciliate_booking`:
-```
+```DIFF
 ...
 -      and rtrim(ltrim(po.status)) = 'PENDING';
 +      and po.id NOT IN (
@@ -201,7 +201,7 @@ Finalmente todo lo que queda es preparar el sistema para el despliegue final, lo
     * implica reconstruir los índices con el estado actual, y computar las
     * estadísticas completas sobre todas las tablas para mejorar el CBO.
 
-```sql
+```SQL
 
 	@4_n+1AntipatternFix.sql
 
@@ -255,7 +255,7 @@ Finalmente todo lo que queda es preparar el sistema para el despliegue final, lo
 
 ### Mejora 0
 
-```sql
+```SQL
 /**
 * Elimina la columna STATEMENT_LOCATOR de la tabla CONCILIATION, y evita
 * actualizar dicha propiedad durante la conciliación.
