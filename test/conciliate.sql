@@ -13,6 +13,6 @@
 		*	UPDATE 1: 1.579, 1.368, 1.351, 1.313 -> Average = 1.403 sec.
 		*	UPDATE 2: 1.796, 1.843, 1.610, 1.547 -> Average = 1.699 sec.
 		*	UPDATE 3: 1.594, 1.062, 1.407, 1.249 -> Average = 1.328 sec.
-		*	UPDATE 4:
+		*	UPDATE 4: 0.734, 1.438, 1.140, 1.375 -> Average = 1.172 sec.
 		*	UPDATE 5:
 		*/
