@@ -236,9 +236,9 @@ Finalmente todo lo que queda es preparar el sistema para el despliegue final, lo
 ## Resultados
 
 
-|Run 1|Run 2|Run 3|Run 4|Average|Variación|%|
-|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-|BASE TIME:|2.272|2.546|2.246|2.062|2.282|
+||Run 1|Run 2|Run 3|Run 4|Average|Variación|%|
+|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+|BASE TIME:|2.272|2.546|2.246|2.062|2.282|-|
 |UPDATE 0:|2.644|1.422|1.547|1.297|1.728|0.554|24.28|
 |UPDATE 1:|1.579|1.368|1.351|1.313|1.403|0.325|18.81|
 |UPDATE 2:|1.796|1.843|1.61|1.547|1.699|-0.296|-21.10|
