@@ -23,6 +23,18 @@
 
 ### Problemas Encontrados
 
+#### Los tablespaces no son auto-extensibles
+
+Los tablespaces `TEAM1_DATA` y `TEAM1_INDEXES` no son *autoextensibles*, por lo cual la generación de índices, las inserciones o el cálculo de nuevas conciliaciones acabarían bloqueando los procesos llevados a cabo por la empresa de turismo. Para solventar la falta de espacio físico, se alteraron las propiedades de ambos tablespaces mediante:
+
+```
+ALTER DATABASE DATAFILE '$ORACLE_HOME/dbs/team1_data.ora'
+    AUTOEXTEND ON;
+
+ALTER DATABASE DATAFILE '$ORACLE_HOME/dbs/team1_indexes.ora'
+    AUTOEXTEND ON;
+```
+
 #### Supplier.status nunca se usa
 En la tabla Supplier, existe el campo `status`. Este campo nunca es utilizado en el procedure por lo que en el caso de que exista algun registro que no sea `status='ACTIVE'`, no va a ser tenido en cuenta en el Procedure.
 
@@ -56,15 +68,15 @@ Al analizar el resultado de esta query notamos que No existe una correlación 1 
 Mantener esta columna de "incierto origen", requiere que se tenga mas cuidado con el cambio realizado, es por esto que se decidió agregar el siguiente código a nuestro update:
 ```
 ALTER TABLE HOTEL_STATEMENT
-    ADD CONSTRAINT HOTEL_STATEMENT_RECORD_LOCATOR_UPPER
+    ADD CONSTRAINT HS_RECORD_LOCATOR_UPPER
         CHECK (upper(RECORD_LOCATOR) = RECORD_LOCATOR);
-CREATE UNIQUE INDEX HOTEL_STATEMENT_RECORD_LOCATOR_UNQ
+CREATE UNIQUE INDEX HOTEL_STATEMENT_RECORD_LOCATOR
     ON HOTEL_STATEMENT(RECORD_LOCATOR);
 
 ALTER TABLE PAYMENT_ORDER
-    ADD CONSTRAINT PAYMENT_ORDER_RECORD_LOCATOR_UPPER
+    ADD CONSTRAINT PO_RECORD_LOCATOR_UPPER
         CHECK (upper(RECORD_LOCATOR) = RECORD_LOCATOR);
-CREATE UNIQUE INDEX PAYMENT_ORDER_RECORD_LOCATOR_UNQ
+CREATE UNIQUE INDEX PAYMENT_ORDER_RECORD_LOCATOR
     ON PAYMENT_ORDER(RECORD_LOCATOR);
 ```
 
