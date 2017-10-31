@@ -249,10 +249,16 @@ Finalmente todo lo que queda es preparar el sistema para el despliegue final, lo
 |UPDATE 5:|0.844|0.796|0.863|0.703|0.802|0.37|31.57|
 
 
-### Plan de Ejecución
+## Mejora final
 
-### Recomendaciones
+En la carpeta `fix/` se pueden encontrar los 3 SQL:
+* `0_UPDATE.sql`
+* `1_CONCILIATE_PKG.sql`
+* `2_CONCILIATE_PKG_BODY.sql`
 
+Contienen todas las mejoras explicadas en un solo script para aplicar en la base de datos de producción.
+
+Al ejecutar estos tres scripts se corrige la performance aproximadamente 3x (de 2.2s a 0.8s) según las metricas realizadas.
 
 ## Anexo
 
