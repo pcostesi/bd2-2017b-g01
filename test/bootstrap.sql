@@ -30,16 +30,16 @@
 	DROP PACKAGE RESET_PKG;
 
 	/* Reconstruir el esquema original */
-	@create_schema.sql
+	@builder/create_schema.sql
 
 	/* Importar datos */
 	@import_data.sql
 
 	/* Construir índices */
-	@create_indexes.sql
+	@builder/create_indexes.sql
 
 	/* Construir PACKAGE y PSMs */
-	@create_package.sql
+	@builder/create_package.sql
 
 	/* Agregar restricciones */
-	@create_constraints.sql
+	@builder/create_constraints.sql
